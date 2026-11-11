@@ -1,242 +1,400 @@
-import { ReactNode, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Heart, MoreHorizontal, Play, RotateCw } from 'lucide-react';
-import { Album, Artist, Playlist, Track } from '../lib/api';
-import { fmt } from '../lib/hooks';
-import { useStore } from '../store';
+"use client";
 
-export const FALLBACK =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a2a30"/><stop offset="1" stop-color="#121215"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><path d="M42 68V38l22-4v28" fill="none" stroke="#fa2d48" stroke-width="4" stroke-linecap="round"/><circle cx="37" cy="68" r="6" fill="#fa2d48"/><circle cx="59" cy="62" r="6" fill="#fa2d48"/></svg>'
-  );
+import Link from "next/link";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Music2, Pause, Play, X } from "lucide-react";
+import { useUI } from "@/context/app";
+import { cn, hashColor, initials } from "@/lib/utils";
 
-export function Cover({ src, className = '', alt = '', eager = false }: { src?: string; className?: string; alt?: string; eager?: boolean }) {
-  const [bad, setBad] = useState(false);
-  return (
-    <img
-      src={bad || !src ? FALLBACK : src}
-      alt={alt}
-      loading={eager ? 'eager' : 'lazy'}
-      decoding="async"
-      draggable={false}
-      onError={() => setBad(true)}
-      className={`bg-[#1a1a1e] object-cover ${className}`}
-    />
-  );
-}
-
-export function Eq({ paused }: { paused?: boolean }) {
-  return <span className={`eq ${paused ? 'paused' : ''}`}><i /><i /><i /></span>;
-}
-
-export function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; delay?: number; className?: string }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 36 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '0px 0px -8% 0px' }}
-      transition={{ duration: 0.9, delay, ease: [0.2, 0.8, 0.2, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-export function Pop({ children, i = 0, className = '' }: { children: ReactNode; i?: number; className?: string }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 22, scale: 0.96 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: '0px 40px 0px 0px' }}
-      transition={{ duration: 0.7, delay: Math.min(i, 8) * 0.05, ease: [0.2, 0.8, 0.2, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-export function SectionHead({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) {
-  return (
-    <div className="mb-3.5 flex items-end justify-between gap-4">
-      <div>
-        <h2 className="text-[22px] font-bold tracking-[-0.025em] sm:text-2xl">{title}</h2>
-        {sub && <p className="mt-0.5 text-[13px] text-white/50">{sub}</p>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** Horizontal scroller with section title and desktop arrows */
-export function RailSection({ title, sub, children, className = '', cols = false }: { title: string; sub?: string; children: ReactNode; className?: string; cols?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const go = (d: number) => ref.current?.scrollBy({ left: ref.current.clientWidth * 0.8 * d, behavior: 'smooth' });
-  return (
-    <Reveal className={`mt-10 sm:mt-12 ${className}`}>
-      <SectionHead title={title} sub={sub}>
-        <div className="hidden gap-2 md:flex [@media(hover:none)]:hidden">
-          <button aria-label="Scroll left" onClick={() => go(-1)} className="glass glass-btn grid size-8 place-items-center rounded-full"><ChevronLeft size={16} /></button>
-          <button aria-label="Scroll right" onClick={() => go(1)} className="glass glass-btn grid size-8 place-items-center rounded-full"><ChevronRight size={16} /></button>
-        </div>
-      </SectionHead>
-      <div ref={ref} className={`no-scrollbar -mx-4 snap-x overflow-x-auto px-4 pb-5 pt-1 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 [scroll-padding-inline:1rem] ${cols ? 'grid snap-mandatory auto-cols-[88%] grid-flow-col grid-rows-4 gap-x-6 sm:auto-cols-[minmax(330px,420px)]' : 'flex snap-proximity gap-4'}`}>
-        {children}
-      </div>
-    </Reveal>
-  );
-}
-
-export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`sk ${className}`} />;
-}
-export const RailSkeleton = ({ n = 7, round }: { n?: number; round?: boolean }) => (
-  <>{Array.from({ length: n }, (_, i) => (
-    <div key={i} className="w-[140px] flex-none sm:w-[172px]"><Skeleton className={`aspect-square w-full ${round ? '!rounded-full' : ''}`} /><Skeleton className="mt-3 h-3.5 w-3/4" /><Skeleton className="mt-2 h-3 w-1/2" /></div>
-  ))}</>
-);
-export const RowsSkeleton = ({ n = 6 }: { n?: number }) => (
-  <div className="flex flex-col gap-1">{Array.from({ length: n }, (_, i) => <Skeleton key={i} className="h-[60px] !rounded-xl" />)}</div>
-);
-
-export function ErrorBox({ onRetry, msg = 'Couldn’t reach the music servers.' }: { onRetry?: () => void; msg?: string }) {
-  return (
-    <div className="flex w-full items-center justify-between gap-4 rounded-2xl border border-dashed border-white/15 p-5 text-sm text-white/60">
-      <span>{msg}</span>
-      {onRetry && <button onClick={onRetry} className="chip !py-2"><RotateCw size={14} /> Retry</button>}
-    </div>
-  );
-}
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <div className="px-6 py-14 text-center text-[15px] leading-relaxed text-white/50">
-      <b className="mb-1 block text-lg font-semibold text-white">{title}</b>
-      {children}
-    </div>
-  );
-}
-
-/* ---------- song row ---------- */
-export function SongRow({ track, list, i, num }: { track: Track; list: Track[]; i: number; num?: boolean }) {
-  const isCur = useStore(s => s.queue[s.idx]?.id === track.id);
-  const playing = useStore(s => s.playing);
-  const fav = useStore(s => s.favs.some(f => f.id === track.id));
-  const play = useStore(s => s.play);
-  const toggle = useStore(s => s.toggle);
-  const toggleFav = useStore(s => s.toggleFav);
-  const openMenu = useStore(s => s.openMenu);
-
-  const overlay = (
-    <span className={`absolute inset-0 grid place-items-center rounded-[inherit] bg-black/50 text-white transition-opacity ${isCur ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-      {isCur ? <Eq paused={!playing} /> : <Play size={18} fill="currentColor" />}
-    </span>
-  );
+/* ───────────── Cover / Avatar ───────────── */
+export function Cover({
+  src,
+  alt,
+  className,
+  round,
+  iconSize = 28,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  round?: boolean;
+  iconSize?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
   return (
     <div
-      role="button" tabIndex={0}
-      onClick={() => (isCur ? toggle() : play(list, i))}
-      onKeyDown={e => { if (e.key === 'Enter') (isCur ? toggle() : play(list, i)); }}
-      className={`group relative flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-2.5 py-[7px] transition-colors hover:bg-white/[.07] ${isCur ? 'bg-accent/10' : ''}`}
+      className={cn("relative shrink-0 overflow-hidden bg-elev", round ? "rounded-full" : "rounded-[6px]", className)}
+      style={!src || failed ? { background: `linear-gradient(135deg, ${hashColor(alt, 50, 32)}, ${hashColor(alt + "x", 60, 18)})` } : undefined}
     >
-      {num ? (
-        <div className="relative grid h-11 w-8 flex-none place-items-center rounded text-sm text-white/50">
-          <span className={isCur ? 'opacity-0' : 'group-hover:opacity-0'}>{i + 1}</span>{overlay}
-        </div>
+      {src && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setFailed(true)}
+          className="h-full w-full object-cover"
+        />
       ) : (
-        <div className="relative size-12 flex-none overflow-hidden rounded-lg shadow-lg shadow-black/40">
-          <Cover src={track.thumb || track.img} className="size-full" />{overlay}
+        <div className="absolute inset-0 grid place-items-center text-white/70">
+          <Music2 size={iconSize} />
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <div className={`truncate text-[15px] font-semibold ${isCur ? 'text-accent' : ''}`}>{track.name}</div>
-        <div className="mt-0.5 truncate text-[13px] text-white/55">{track.artist}</div>
-      </div>
-      {track.dur > 0 && <span className="hidden text-[13px] tabular-nums text-white/45 sm:block">{fmt(track.dur)}</span>}
-      <button
-        aria-label="Favourite"
-        onClick={e => { e.stopPropagation(); toggleFav(track); }}
-        className={`grid size-9 flex-none place-items-center rounded-full transition hover:bg-white/10 active:scale-85 ${fav ? 'text-accent' : 'text-white/60 opacity-100 lg:opacity-0 lg:group-hover:opacity-100'}`}
-      >
-        <Heart size={19} fill={fav ? 'currentColor' : 'none'} />
-      </button>
-      <button
-        aria-label="More"
-        onClick={e => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openMenu(track, r.right, r.bottom); }}
-        className="grid size-9 flex-none place-items-center rounded-full text-white/60 transition hover:bg-white/10 active:scale-85 lg:opacity-0 lg:group-hover:opacity-100"
-      >
-        <MoreHorizontal size={19} />
-      </button>
     </div>
   );
 }
 
-/* ---------- cards ---------- */
-function CardShell({ img, title, sub, round, onClick, playing, children }: { img: string; title: string; sub?: string; round?: boolean; onClick: () => void; playing?: boolean; children?: ReactNode }) {
+export function Avatar({
+  name,
+  src,
+  color,
+  size = 32,
+  className,
+}: {
+  name: string;
+  src?: string | null;
+  color?: string;
+  size?: number;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
   return (
-    <div onClick={onClick} className={`group w-[140px] flex-none cursor-pointer snap-start sm:w-[172px] ${round ? 'text-center' : ''}`}>
-      <div className={`relative aspect-square overflow-hidden shadow-xl shadow-black/50 ring-1 ring-white/10 transition duration-500 [transition-timing-function:var(--ease-swaram)] group-hover:-translate-y-1 group-hover:shadow-2xl ${round ? 'rounded-full' : 'rounded-2xl'} ${playing ? 'outline outline-2 outline-offset-2 outline-accent' : ''}`}>
-        <Cover src={img} className="size-full transition-transform duration-700 group-hover:scale-[1.07]" />
-        {children}
-      </div>
-      <div className="mt-2.5 truncate text-sm font-semibold">{title}</div>
-      {sub && <div className="mt-0.5 truncate text-[13px] text-white/50">{sub}</div>}
+    <div
+      className={cn("relative grid shrink-0 place-items-center overflow-hidden rounded-full font-bold text-black", className)}
+      style={{ width: size, height: size, background: color ?? hashColor(name, 60, 55), fontSize: Math.max(10, size * 0.38) }}
+    >
+      {src && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={name} referrerPolicy="no-referrer" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+      ) : (
+        <span>{initials(name)}</span>
+      )}
     </div>
   );
 }
-const Fab = () => (
-  <span className="glass-clear absolute bottom-2.5 right-2.5 grid size-10 translate-y-2 scale-90 place-items-center rounded-full text-white opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100">
-    <Play size={17} fill="currentColor" className="ml-0.5" />
-  </span>
-);
 
-export function TrackCard({ track, list, i }: { track: Track; list: Track[]; i: number }) {
-  const isCur = useStore(s => s.queue[s.idx]?.id === track.id);
-  const play = useStore(s => s.play); const toggle = useStore(s => s.toggle);
-  return (
-    <Pop i={i} className="flex-none">
-      <CardShell img={track.img} title={track.name} sub={track.artist} playing={isCur} onClick={() => (isCur ? toggle() : play(list, i))}><Fab /></CardShell>
-    </Pop>
-  );
-}
-export function AlbumCard({ a, i = 0 }: { a: Album; i?: number }) {
-  const open = useStore(s => s.openDetail);
-  return <Pop i={i} className="flex-none"><CardShell img={a.img} title={a.name} sub={a.sub} onClick={() => open({ type: 'album', id: a.id })}><Fab /></CardShell></Pop>;
-}
-export function PlaylistCard({ p, i = 0 }: { p: Playlist; i?: number }) {
-  const open = useStore(s => s.openDetail);
-  return <Pop i={i} className="flex-none"><CardShell img={p.img} title={p.name} sub={p.sub} onClick={() => open({ type: 'playlist', id: p.id })}><Fab /></CardShell></Pop>;
-}
-export function ArtistCard({ a, i = 0 }: { a: Artist; i?: number }) {
-  const open = useStore(s => s.openDetail);
-  return <Pop i={i} className="flex-none"><CardShell img={a.img} title={a.name} sub="Artist" round onClick={() => open({ type: 'artist', id: a.id })} /></Pop>;
-}
-
-export function Tile({ g, title, sub, onClick, glyph }: { g: string; title: string; sub?: string; onClick: () => void; glyph?: string }) {
+/* ───────────── Buttons ───────────── */
+export function IconBtn({
+  children,
+  active,
+  className,
+  label,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean; label: string }) {
   return (
     <button
-      onClick={onClick}
-      style={{ background: g }}
-      className="group relative flex h-[104px] flex-col justify-end overflow-hidden rounded-[20px] p-4 text-left shadow-xl shadow-black/40 ring-1 ring-white/15 transition duration-500 [transition-timing-function:var(--ease-swaram)] hover:-translate-y-1 hover:scale-[1.02] sm:h-[118px]"
+      aria-label={label}
+      title={label}
+      {...rest}
+      className={cn(
+        "press grid shrink-0 place-items-center rounded-full transition disabled:opacity-40",
+        active ? "text-brand" : "text-sub hover:text-fg",
+        className,
+      )}
     >
-      <span className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-white/20 blur-[2px] transition-transform duration-700 group-hover:scale-150" />
-      {glyph && <span className="pointer-events-none absolute right-3 top-1 text-6xl font-black text-white/25">{glyph}</span>}
-      <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/35" />
-      <b className="relative text-xl font-extrabold leading-tight tracking-tight text-white drop-shadow sm:text-[22px]">{title}</b>
-      {sub && <span className="relative text-xs font-semibold text-white/85">{sub}</span>}
+      {children}
     </button>
   );
 }
 
-export function PageHeader({ eyebrow, title, right }: { eyebrow?: string; title: ReactNode; right?: ReactNode }) {
+export function PlayFab({
+  playing,
+  onClick,
+  size = 56,
+  className,
+  label,
+}: {
+  playing?: boolean;
+  onClick?: () => void;
+  size?: number;
+  className?: string;
+  label?: string;
+}) {
   return (
-    <div className="flex items-end justify-between gap-4 pb-5 pt-[calc(var(--safe-t)+64px)] lg:pt-[72px]">
-      <div className="min-w-0">
-        {eyebrow && <div className="text-xs font-bold uppercase tracking-[.14em] text-accent">{eyebrow}</div>}
-        <h1 className="mt-1.5 text-[38px] font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-5xl">{title}</h1>
-      </div>
-      {right}
+    <button
+      aria-label={label ?? (playing ? "Pause" : "Play")}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick?.();
+      }}
+      className={cn(
+        "press grid shrink-0 place-items-center rounded-full bg-brand text-onbrand shadow-xl transition hover:scale-105 hover:bg-brand-hover",
+        className,
+      )}
+      style={{ width: size, height: size }}
+    >
+      {playing ? <Pause size={size * 0.46} fill="currentColor" /> : <Play size={size * 0.46} fill="currentColor" className="translate-x-[1px]" />}
+    </button>
+  );
+}
+
+export function Chip({
+  children,
+  active,
+  onClick,
+  className,
+}: {
+  children: ReactNode;
+  active?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "press whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition",
+        active ? "bg-brand text-onbrand" : "bg-fg/10 text-fg hover:bg-fg/15",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ───────────── Equalizer ───────────── */
+export function EqBars({ playing = true, className }: { playing?: boolean; className?: string }) {
+  return (
+    <span className={cn("inline-flex h-3.5 items-end gap-[2px] text-brand", !playing && "eq-paused", className)} aria-hidden>
+      {[0, 0.25, 0.5, 0.15].map((d, i) => (
+        <span key={i} className="eq-bar w-[3px] rounded-sm bg-current" style={{ height: "100%", animationDelay: `${d}s` }} />
+      ))}
+    </span>
+  );
+}
+
+/* ───────────── Section / Shelf ───────────── */
+export function SectionHeader({ title, href, action }: { title: string; href?: string; action?: ReactNode }) {
+  return (
+    <div className="mb-3 flex items-end justify-between gap-3">
+      <h2 className="text-[22px] font-bold tracking-tight hover:underline">{href ? <Link href={href}>{title}</Link> : title}</h2>
+      {action}
     </div>
+  );
+}
+
+export function Shelf({ title, href, children, action }: { title: string; href?: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <section className="fade-up mb-8">
+      <SectionHeader title={title} href={href} action={action} />
+      <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 md:-mx-6 md:px-6">{children}</div>
+    </section>
+  );
+}
+
+export function ShelfSkeleton({ round }: { round?: boolean }) {
+  return (
+    <div className="mb-8">
+      <div className="skeleton mb-4 h-6 w-48 rounded" />
+      <div className="flex gap-3 overflow-hidden">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="w-40 shrink-0 md:w-44">
+            <div className={cn("skeleton aspect-square w-full", round ? "rounded-full" : "rounded-md")} />
+            <div className="skeleton mt-3 h-3.5 w-3/4 rounded" />
+            <div className="skeleton mt-2 h-3 w-1/2 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="glass mx-auto my-10 max-w-md rounded-2xl p-6 text-center">
+      <p className="text-lg font-bold">Something went off-beat</p>
+      <p className="mt-1 text-sm text-sub">{message}</p>
+      {onRetry && (
+        <button onClick={onRetry} className="press mt-4 rounded-full bg-fg px-5 py-2 text-sm font-bold text-bg">
+          Try again
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ───────────── Modal ───────────── */
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  wide,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open || !mounted) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm md:items-center md:p-6" onMouseDown={onClose}>
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className={cn(
+          "glass-pop pop-in max-h-[88dvh] w-full overflow-y-auto rounded-t-3xl p-5 text-fg md:rounded-3xl md:p-6",
+          wide ? "md:max-w-2xl" : "md:max-w-md",
+        )}
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-xl font-bold">{title}</h3>
+          <button onClick={onClose} aria-label="Close" className="press grid h-8 w-8 place-items-center rounded-full bg-fg/10 hover:bg-fg/20">
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ───────────── Popover menu ───────────── */
+export type MenuItem = {
+  label: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  hidden?: boolean;
+};
+
+export function PopMenu({ trigger, items, title }: { trigger: (open: () => void, isOpen: boolean) => ReactNode; items: MenuItem[]; title?: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const anchor = useRef<HTMLSpanElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const openMenu = () => {
+    const r = anchor.current?.getBoundingClientRect();
+    if (r) setPos({ x: r.right, y: r.bottom });
+    setOpen(true);
+  };
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  const visible = items.filter((i) => !i.hidden);
+  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
+  let style: React.CSSProperties = {};
+  if (!mobile && pos) {
+    const w = 244;
+    const h = visible.length * 40 + 16;
+    const left = Math.max(8, Math.min(pos.x - w, window.innerWidth - w - 8));
+    const top = pos.y + h > window.innerHeight - 8 ? Math.max(8, pos.y - h - 36) : pos.y + 4;
+    style = { left, top, width: w };
+  }
+
+  return (
+    <>
+      <span ref={anchor} className="inline-flex">
+        {trigger(openMenu, open)}
+      </span>
+      {open &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[95]" onMouseDown={() => setOpen(false)}>
+            <div
+              ref={menu}
+              onMouseDown={(e) => e.stopPropagation()}
+              className={cn(
+                "glass-pop pop-in absolute p-1.5 text-fg",
+                mobile ? "inset-x-0 bottom-0 rounded-t-3xl p-3 pb-8" : "rounded-xl",
+              )}
+              style={style}
+            >
+              {mobile && title && <div className="mb-2 border-b border-line px-2 pb-3">{title}</div>}
+              {visible.map((it, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setOpen(false);
+                    it.onClick();
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-fg/10",
+                    it.danger && "text-red-400",
+                  )}
+                >
+                  <span className="grid h-4 w-4 shrink-0 place-items-center text-sub">{it.icon}</span>
+                  <span className="truncate">{it.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+/* ───────────── Toasts ───────────── */
+export function Toasts() {
+  const { toasts } = useUI();
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-[120] flex flex-col items-center gap-2 px-4 md:bottom-28">
+      {toasts.map((t) => (
+        <div key={t.id} className="glass-dark pop-in max-w-sm rounded-full px-5 py-2.5 text-center text-sm font-medium">
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ───────────── Credits ───────────── */
+export function Credits({ className }: { className?: string }) {
+  return (
+    <p className={cn("text-xs text-sub", className)}>
+      Developed by{" "}
+      <a href="https://namithrn.vercel.app" target="_blank" rel="noopener noreferrer" className="font-semibold text-fg underline-offset-2 hover:text-brand hover:underline">
+        Namith RN
+      </a>
+    </p>
+  );
+}
+
+export function Logo({ size = 32, withText = true }: { size?: number; withText?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2.5">
+      <span
+        className="grid place-items-center rounded-full bg-brand text-onbrand shadow-[0_0_24px_-4px_var(--brand)]"
+        style={{ width: size, height: size }}
+      >
+        <svg width={size * 0.58} height={size * 0.58} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+          <path d="M4 13v-2M8 17V7M12 21V3M16 17V7M20 13v-2" />
+        </svg>
+      </span>
+      {withText && (
+        <span className="leading-none">
+          <span className="block text-[19px] font-extrabold tracking-tight">Swaram</span>
+          <span className="block pt-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-sub">by Namith</span>
+        </span>
+      )}
+    </span>
   );
 }

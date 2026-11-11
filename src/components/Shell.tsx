@@ -1,248 +1,318 @@
-import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Heart, Home, Languages, Library, ListPlus, ListEnd, Music2, Search, Disc3, UserRound, X, ExternalLink, Pencil } from 'lucide-react';
-import { LANGS, langOf } from '../lib/languages';
-import { useStore, View } from '../store';
+"use client";
 
-export const CREDIT_URL = 'https://namithrn.vercel.app';
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ArrowDownCircle,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Home,
+  Library,
+  LogIn,
+  LogOut,
+  Moon,
+  Plus,
+  Search,
+  Settings,
+  Sun,
+  User,
+  Users,
+  WifiOff,
+  Radio,
+} from "lucide-react";
+import { useMe, useTheme, useUI } from "@/context/app";
+import { useDownloads, useLibrary } from "@/context/library";
+import { usePlayer } from "@/context/player";
+import { useAccent } from "@/lib/hooks";
+import { cn } from "@/lib/utils";
+import { CreatePlaylistDialog, PlaylistCover, PlaylistPicker, ShareDialog } from "./dialogs";
+import { DynamicIsland, FullPlayer, MiniPlayer, PlayerBar } from "./player-ui";
+import { RightPanel } from "./panels";
+import { Avatar, Credits, IconBtn, Logo, PopMenu, Toasts } from "./ui";
 
-export function LogoMark({ size = 40 }: { size?: number }) {
+/* ───────────── Sidebar ───────────── */
+function NavItem({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
   return (
-    <div style={{ width: size, height: size, borderRadius: size * 0.29 }} className="relative grid flex-none place-items-center bg-gradient-to-br from-accent to-accent2 shadow-[0_8px_26px_-6px_rgba(250,45,72,.7)]">
-      <span className="absolute inset-0 rounded-[inherit] bg-gradient-to-b from-white/35 to-transparent" style={{ maskImage: 'linear-gradient(#000, transparent 55%)', WebkitMaskImage: 'linear-gradient(#000, transparent 55%)' }} />
-      <svg viewBox="0 0 24 24" width={size * 0.56} height={size * 0.56} fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 18V6l11-2v12" /><circle cx="6" cy="18" r="2.4" fill="#fff" /><circle cx="17" cy="16" r="2.4" fill="#fff" />
-      </svg>
+    <Link
+      href={href}
+      className={cn("flex items-center gap-4 rounded-lg px-3 py-2.5 text-[15px] font-bold transition", active ? "bg-fg/10 text-fg" : "text-sub hover:text-fg")}
+    >
+      {icon}
+      {label}
+    </Link>
+  );
+}
+
+function LibRow({ href, cover, title, sub, active }: { href: string; cover: ReactNode; title: string; sub: string; active?: boolean }) {
+  return (
+    <Link href={href} className={cn("flex items-center gap-3 rounded-lg p-2 transition hover:bg-fg/10", active && "bg-fg/10")}>
+      {cover}
+      <div className="min-w-0">
+        <p className="truncate text-[15px] font-medium">{title}</p>
+        <p className="truncate text-sm text-sub">{sub}</p>
+      </div>
+    </Link>
+  );
+}
+
+export function LikedCover({ className }: { className?: string }) {
+  return (
+    <div className={cn("grid shrink-0 place-items-center rounded-[6px] bg-gradient-to-br from-indigo-600 to-sky-300 text-white", className)}>
+      <Heart size={20} fill="currentColor" />
+    </div>
+  );
+}
+export function DownloadCover({ className }: { className?: string }) {
+  return (
+    <div className={cn("grid shrink-0 place-items-center rounded-[6px] bg-gradient-to-br from-emerald-500 to-lime-300 text-black", className)}>
+      <ArrowDownCircle size={22} />
     </div>
   );
 }
 
-const NAV: { k: View; label: string; icon: typeof Home }[] = [
-  { k: 'home', label: 'Listen Now', icon: Home },
-  { k: 'search', label: 'Search', icon: Search },
-  { k: 'library', label: 'Library', icon: Library }
-];
-
-export function Sidebar() {
-  const view = useStore(s => s.view); const nav = useStore(s => s.nav);
-  const langs = useStore(s => s.langs); const open = useStore(s => s.openLangSheet);
+function Sidebar() {
+  const path = usePathname();
+  const ui = useUI();
+  const lib = useLibrary();
+  const dl = useDownloads();
+  const [filter, setFilter] = useState<"all" | "collab" | "dl">("all");
+  const chip = (id: typeof filter, label: string) => (
+    <button
+      onClick={() => setFilter(filter === id ? "all" : id)}
+      className={cn("press rounded-full px-3 py-1.5 text-sm font-medium transition", filter === id ? "bg-fg text-bg" : "bg-fg/10 hover:bg-fg/15")}
+    >
+      {label}
+    </button>
+  );
   return (
-    <aside className="glass glass-thick fixed bottom-3 left-3 top-3 z-50 hidden w-[244px] flex-col rounded-[28px] p-4 lg:flex">
-      <div className="flex items-center gap-3 px-2 pb-5 pt-2">
-        <LogoMark />
-        <div className="leading-tight">
-          <b className="block text-[19px] font-extrabold tracking-tight">Swaram</b>
-          <span className="text-xs text-white/50">by Namith</span>
-        </div>
-      </div>
-      <button onClick={() => nav('search')} className="mb-3 flex h-10 items-center gap-2 rounded-xl bg-white/[.08] px-3 text-sm text-white/45 transition hover:bg-white/[.13]">
-        <Search size={16} /> Search <kbd className="ml-auto rounded bg-white/10 px-1.5 text-[10px] font-semibold">/</kbd>
-      </button>
-      <nav className="flex flex-col gap-1">
-        {NAV.map(n => (
-          <button key={n.k} onClick={() => nav(n.k)} className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors ${view === n.k ? 'text-white' : 'text-white/70 hover:bg-white/[.06]'}`}>
-            {view === n.k && <motion.span layoutId="navpill" className="absolute inset-0 rounded-xl bg-white/[.12] shadow-[inset_0_1px_0_rgba(255,255,255,.2)]" transition={{ type: 'spring', stiffness: 380, damping: 32 }} />}
-            <n.icon size={19} className={`relative ${view === n.k ? 'text-accent' : ''}`} /><span className="relative">{n.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="mt-6 px-2">
-        <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-[.14em] text-white/40">
-          Your Languages
-          <button onClick={() => open(true)} aria-label="Edit languages" className="grid size-6 place-items-center rounded-full transition hover:bg-white/10 hover:text-white"><Pencil size={12} /></button>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {langs.map(c => (
-            <span key={c} className="rounded-full bg-white/[.09] px-2.5 py-1 text-xs font-semibold text-white/80">{langOf(c)?.native ?? c}</span>
-          ))}
-          <button onClick={() => open(true)} className="rounded-full border border-dashed border-white/25 px-2.5 py-1 text-xs font-semibold text-white/60 transition hover:border-white/50 hover:text-white">+ Add</button>
-        </div>
+    <aside className="hidden w-[300px] shrink-0 flex-col gap-2 md:flex lg:w-[330px]">
+      <div className="panel rounded-xl p-2">
+        <Link href="/" className="mb-2 block px-3 pb-1 pt-3">
+          <Logo />
+        </Link>
+        <NavItem href="/" icon={<Home size={24} fill={path === "/" ? "currentColor" : "none"} />} label="Home" active={path === "/"} />
+        <NavItem href="/search" icon={<Search size={24} strokeWidth={path.startsWith("/search") ? 3 : 2} />} label="Search" active={path.startsWith("/search")} />
+        <NavItem href="/community" icon={<Users size={24} fill={path.startsWith("/community") ? "currentColor" : "none"} />} label="Community" active={path.startsWith("/community")} />
       </div>
 
-      <a href={CREDIT_URL} target="_blank" rel="noreferrer" className="group mt-auto rounded-2xl bg-white/[.06] p-3.5 text-[12px] leading-snug text-white/55 ring-1 ring-white/[.06] transition hover:bg-white/[.1]">
-        <span className="block text-[10px] font-bold uppercase tracking-[.14em] text-white/35">Designed & built by</span>
-        <span className="mt-1 flex items-center gap-1.5 text-[14px] font-bold text-white">Namith RN <ExternalLink size={12} className="opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" /></span>
-        <span className="mt-1.5 block text-[11px] text-white/35">Streams via the unofficial JioSaavn API. Lyrics by LRCLIB.</span>
-      </a>
+      <div className="panel flex min-h-0 flex-1 flex-col rounded-xl">
+        <div className="flex items-center justify-between px-5 pb-2 pt-4">
+          <Link href="/library" className="flex items-center gap-3 font-bold text-sub transition hover:text-fg">
+            <Library size={24} /> Your Library
+          </Link>
+          <IconBtn label="Create playlist" onClick={() => ui.setCreateOpen(true)} className="h-8 w-8 hover:bg-fg/10">
+            <Plus size={20} />
+          </IconBtn>
+        </div>
+        <div className="flex gap-2 px-4 pb-2">
+          {chip("collab", "Collaborative")}
+          {chip("dl", "Downloaded")}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+          {filter !== "collab" && (
+            <>
+              {filter === "all" && (
+                <LibRow
+                  href="/liked"
+                  active={path === "/liked"}
+                  cover={<LikedCover className="h-12 w-12" />}
+                  title="Liked Songs"
+                  sub={`Playlist • ${lib.likes.length} songs`}
+                />
+              )}
+              <LibRow
+                href="/downloads"
+                active={path === "/downloads"}
+                cover={<DownloadCover className="h-12 w-12" />}
+                title="Downloads"
+                sub={`Offline • ${dl.items.length} songs`}
+              />
+            </>
+          )}
+          {filter !== "dl" &&
+            lib.playlists
+              .filter((p) => filter === "all" || p.isCollaborative)
+              .map((p) => (
+                <LibRow
+                  key={p.id}
+                  href={`/p/${p.id}`}
+                  active={path === `/p/${p.id}`}
+                  cover={<PlaylistCover covers={p.covers} name={p.name} className="h-12 w-12" collaborative={p.isCollaborative} />}
+                  title={p.name}
+                  sub={`${p.isCollaborative ? "Collaborative" : p.isPublic ? "Public" : "Playlist"} • ${p.role === "collaborator" ? p.owner?.displayName ?? "Shared" : "You"}`}
+                />
+              ))}
+          {filter === "all" && lib.playlists.length === 0 && (
+            <div className="glass mx-1 mt-3 rounded-xl p-4">
+              <p className="font-bold">Create your first playlist</p>
+              <p className="mt-1 text-sm text-sub">It&apos;s easy, we&apos;ll help you.</p>
+              <button onClick={() => ui.setCreateOpen(true)} className="press mt-3 rounded-full bg-fg px-4 py-1.5 text-sm font-bold text-bg">
+                Create playlist
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-line px-5 py-3">
+          <Credits />
+          <Link href="/settings" aria-label="Settings" className="text-sub hover:text-fg">
+            <Settings size={18} />
+          </Link>
+        </div>
+      </div>
     </aside>
   );
 }
 
-export function TabBar() {
-  const view = useStore(s => s.view); const nav = useStore(s => s.nav);
-  const items = NAV.filter(n => n.k !== 'search');
+/* ───────────── Top bar ───────────── */
+function TopBar() {
+  const router = useRouter();
+  const { me, isGuest, firebaseEnabled, signIn, signOut } = useMe();
+  const { theme, toggle } = useTheme();
+  const ui = useUI();
+  const p = usePlayer();
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const el = document.getElementById("main-scroll");
+    if (!el) return;
+    const on = () => setScrolled(el.scrollTop > 60);
+    el.addEventListener("scroll", on, { passive: true });
+    return () => el.removeEventListener("scroll", on);
+  }, []);
+
+  const menu = [
+    { label: "Profile", icon: <User size={16} />, onClick: () => router.push(me ? `/user/${me.username}` : "/settings") },
+    { label: "Settings", icon: <Settings size={16} />, onClick: () => router.push("/settings") },
+    { label: "Downloads", icon: <ArrowDownCircle size={16} />, onClick: () => router.push("/downloads") },
+    { label: theme === "dark" ? "Light mode" : "Dark mode", icon: theme === "dark" ? <Sun size={16} /> : <Moon size={16} />, onClick: toggle },
+    { label: "Sign in with Google", icon: <LogIn size={16} />, hidden: !(firebaseEnabled && isGuest), onClick: () => void signIn().catch(() => ui.toast("Sign-in was cancelled")) },
+    { label: "Sign out", icon: <LogOut size={16} />, hidden: !(firebaseEnabled && !isGuest), onClick: () => void signOut() },
+  ];
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[55] flex items-center justify-center gap-3 px-4 lg:hidden" style={{ paddingBottom: 'calc(var(--safe-b) + 10px)' }}>
-      <nav className="glass refract flex h-[62px] flex-1 items-center rounded-full p-1.5" style={{ maxWidth: 360 }}>
-        {items.map(n => (
-          <button key={n.k} onClick={() => nav(n.k)} className={`relative flex h-full flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[10.5px] font-semibold transition-colors ${view === n.k ? 'text-accent' : 'text-white/65'}`}>
-            {view === n.k && <motion.span layoutId="tabpill" className="absolute inset-0 rounded-full bg-white/[.14] shadow-[inset_0_1px_0_rgba(255,255,255,.25)]" transition={{ type: 'spring', stiffness: 380, damping: 32 }} />}
-            <n.icon size={22} className="relative" /><span className="relative">{n.label}</span>
+    <header
+      className={cn(
+        "sticky top-0 z-30 flex h-16 items-center justify-between gap-3 px-4 transition-colors duration-300 md:px-6",
+        scrolled ? "bg-panel/60 backdrop-blur-2xl" : "bg-transparent",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
+          <button aria-label="Back" onClick={() => router.back()} className="press grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60">
+            <ChevronLeft size={20} />
           </button>
-        ))}
-      </nav>
-      <button aria-label="Search" onClick={() => nav('search')} className={`glass refract glass-btn grid size-[62px] flex-none place-items-center rounded-full ${view === 'search' ? 'text-accent' : 'text-white/80'}`}>
-        <Search size={24} />
-      </button>
-    </div>
-  );
-}
-
-export function Splash({ show }: { show: boolean }) {
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          key="splash"
-          className="fixed inset-0 z-[300] flex flex-col items-center justify-center gap-3 bg-[#050506]"
-          exit={{ opacity: 0, scale: 1.06, filter: 'blur(14px)' }} transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
-        >
-          <div className="aurora"><i /><i /><i /></div>
-          <motion.div initial={{ opacity: 0, y: 24, filter: 'blur(12px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 1.2, ease: [0.2, 0.8, 0.2, 1] }}
-            className="relative bg-gradient-to-r from-white via-white to-accent2 bg-clip-text text-[clamp(60px,14vw,120px)] font-extrabold leading-tight tracking-tight text-transparent">
-            സ്വരം
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.3 }} className="relative text-[13px] font-semibold uppercase tracking-[.45em] text-white/55">
-            Swaram <span className="text-accent">·</span> by Namith
-          </motion.div>
-          <div className="relative mt-8 h-0.5 w-28 overflow-hidden rounded bg-white/10"><i className="block h-full w-2/5 bg-accent" style={{ animation: 'slide 1.1s infinite var(--ease-swaram)' }} /></div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ---------- language picker ---------- */
-export function LanguageSheet() {
-  const open = useStore(s => s.langSheet); const onboarded = useStore(s => s.onboarded);
-  const langs = useStore(s => s.langs); const setLangs = useStore(s => s.setLangs);
-  const openSheet = useStore(s => s.openLangSheet); const finish = useStore(s => s.finishOnboarding);
-  const visible = open || !onboarded;
-  const first = !onboarded;
-
-  const toggle = (c: string) => setLangs(langs.includes(c) ? langs.filter(x => x !== c) : [...langs, c]);
-  const done = () => { if (!langs.length) return; if (first) finish(); else openSheet(false); };
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div key="lsheet" className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !first && openSheet(false)} />
-          <motion.div
-            initial={{ y: 80, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 80, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-            className="glass glass-thick relative flex max-h-[92dvh] w-full flex-col rounded-t-[32px] sm:max-w-[640px] sm:rounded-[32px]"
-          >
-            <div className="flex items-start justify-between gap-4 px-6 pb-3 pt-6 sm:px-8 sm:pt-8">
-              <div>
-                {first && <div className="mb-2"><LogoMark size={44} /></div>}
-                <h2 className="text-2xl font-extrabold tracking-tight sm:text-[28px]">{first ? 'Welcome to Swaram' : 'Song languages'}</h2>
-                <p className="mt-1 text-sm text-white/55">{first ? 'Pick the languages you love — choose as many as you like. You can change this anytime.' : 'Home, mixes and search will be tuned to your languages.'}</p>
-              </div>
-              {!first && <button aria-label="Close" onClick={() => openSheet(false)} className="glass-clear grid size-9 flex-none place-items-center rounded-full"><X size={17} /></button>}
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 overflow-y-auto px-5 pb-4 pt-2 sm:grid-cols-3 sm:px-8">
-              {LANGS.map(l => {
-                const on = langs.includes(l.code);
-                return (
-                  <button key={l.code} onClick={() => toggle(l.code)} aria-pressed={on}
-                    className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 text-left ring-1 transition duration-300 active:scale-95 ${on ? 'bg-white/[.14] ring-white/50' : 'bg-white/[.05] ring-white/10 hover:bg-white/[.1]'}`}>
-                    <span style={{ background: l.g }} className="grid size-11 flex-none place-items-center rounded-xl text-lg font-extrabold text-white shadow-lg">{l.glyph}</span>
-                    <span className="min-w-0 leading-tight"><b className="block truncate text-[15px]">{l.native}</b><span className="text-xs text-white/50">{l.name}</span></span>
-                    <AnimatePresence>
-                      {on && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="absolute right-2 top-2 grid size-5 place-items-center rounded-full bg-accent text-white"><Check size={12} strokeWidth={3.5} /></motion.span>}
-                    </AnimatePresence>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-white/10 px-6 py-4 pb-safe sm:px-8">
-              <span className="text-sm text-white/50">{langs.length ? `${langs.length} selected` : 'Select at least one'}</span>
-              <button onClick={done} disabled={!langs.length} className="rounded-full bg-accent px-7 py-3 text-[15px] font-bold text-white shadow-[0_12px_26px_-10px_rgba(250,45,72,.9)] transition hover:scale-[1.03] active:scale-95 disabled:opacity-40">
-                {first ? 'Start listening' : 'Done'}
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ---------- toast ---------- */
-export function Toast() {
-  const msg = useStore(s => s.toastMsg); const n = useStore(s => s.toastN);
-  useEffect(() => {
-    if (!n) return;
-    const t = setTimeout(() => useStore.setState({ toastMsg: '' }), 2400);
-    return () => clearTimeout(t);
-  }, [n]);
-  return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[250] flex justify-center px-4" style={{ paddingTop: 'calc(var(--safe-t) + 14px)' }}>
-      <AnimatePresence>
-        {msg && (
-          <motion.div key={n} initial={{ y: -70, opacity: 0, scale: 0.9 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: -40, opacity: 0, scale: 0.95 }} transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="glass glass-thick refract max-w-full rounded-full px-5 py-3 text-sm font-semibold">
-            {msg}
-          </motion.div>
+          <button aria-label="Forward" onClick={() => router.forward()} className="press grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <Link href="/" className="md:hidden">
+          <Logo size={30} />
+        </Link>
+      </div>
+      <div className="flex items-center gap-1.5 md:gap-2">
+        {p.room && (
+          <button onClick={() => ui.openFull("together")} className="press hidden items-center gap-1.5 rounded-full bg-brand/15 px-3 py-1.5 text-xs font-bold text-brand sm:flex">
+            <Radio size={14} /> {p.room.code}
+          </button>
         )}
-      </AnimatePresence>
+        <IconBtn label="Toggle theme" onClick={toggle} className="h-9 w-9 bg-black/30 text-white hover:bg-black/50 hover:text-white">
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        </IconBtn>
+        <IconBtn label="Friend activity" active={ui.panel === "friends"} onClick={() => ui.togglePanel("friends")} className="hidden h-9 w-9 bg-black/30 text-white hover:bg-black/50 hover:text-white lg:grid">
+          <Users size={18} />
+        </IconBtn>
+        <Link href="/community" aria-label="Community" className="press grid h-9 w-9 place-items-center rounded-full bg-black/30 text-white hover:bg-black/50 lg:hidden">
+          <Users size={18} />
+        </Link>
+        <PopMenu
+          items={menu}
+          title={<p className="font-bold">{me?.displayName ?? "Swaram Listener"}</p>}
+          trigger={(open) => (
+            <button aria-label="Account menu" onClick={open} className="press rounded-full bg-black/30 p-1 hover:bg-black/50">
+              <Avatar name={me?.displayName ?? "Swaram"} src={me?.avatarUrl} color={me?.accent} size={30} />
+            </button>
+          )}
+        />
+      </div>
+    </header>
+  );
+}
+
+/* ───────────── Mobile bottom nav ───────────── */
+function MobileNav() {
+  const path = usePathname();
+  const tabs = [
+    { href: "/", label: "Home", icon: Home, active: path === "/" },
+    { href: "/search", label: "Search", icon: Search, active: path.startsWith("/search") },
+    { href: "/library", label: "Your Library", icon: Library, active: path.startsWith("/library") || path.startsWith("/liked") || path.startsWith("/downloads") || path.startsWith("/p/") },
+    { href: "/community", label: "Community", icon: Users, active: path.startsWith("/community") },
+  ];
+  return (
+    <nav className="glass safe-b fixed inset-x-0 bottom-0 z-[55] flex rounded-t-3xl border-b-0 pt-1 md:hidden">
+      {tabs.map((t) => (
+        <Link key={t.href} href={t.href} className={cn("press flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium", t.active ? "text-fg" : "text-sub")}>
+          <t.icon size={24} strokeWidth={t.active ? 2.6 : 2} fill={t.active && t.icon === Home ? "currentColor" : "none"} />
+          {t.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function OfflineBanner() {
+  const dl = useDownloads();
+  if (dl.online) return null;
+  return (
+    <div className="relative z-[2] flex items-center justify-center gap-2 bg-amber-500 px-3 py-1.5 text-center text-xs font-bold text-black">
+      <WifiOff size={14} /> You&apos;re offline — your downloaded songs are still available.{" "}
+      <Link href="/downloads" className="underline">
+        Open Downloads
+      </Link>
     </div>
   );
 }
 
-/* ---------- song context menu ---------- */
-export function SongMenu() {
-  const menu = useStore(s => s.menu); const close = useStore(s => s.closeMenu);
-  const s = useStore();
+/* ───────────── Shell ───────────── */
+export function Shell({ children }: { children: ReactNode }) {
+  const p = usePlayer();
+  const path = usePathname();
+  const accent = useAccent(p.current?.image, p.current?.id);
   useEffect(() => {
-    if (!menu) return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [menu, close]);
-  const t = menu?.track;
-  const fav = t ? s.favs.some(f => f.id === t.id) : false;
-  const items = t ? [
-    { icon: ListEnd, label: 'Play Next', run: () => s.playNext(t) },
-    { icon: ListPlus, label: 'Add to Queue', run: () => s.addToQueue(t) },
-    { icon: Heart, label: fav ? 'Remove from Library' : 'Add to Library', run: () => s.toggleFav(t) },
-    ...(t.albumId ? [{ icon: Disc3, label: 'Go to Album', run: () => s.openDetail({ type: 'album', id: t.albumId }) }] : []),
-    ...(t.artists[0] ? [{ icon: UserRound, label: 'Go to Artist', run: () => s.openDetail({ type: 'artist', id: t.artists[0].id }) }] : []),
-    { icon: Search, label: 'Search similar', run: () => s.goSearch(t.artists[0]?.name || t.name) }
-  ] : [];
-  const desktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
-  const x = menu ? Math.min(Math.max(12, menu.x - 230), window.innerWidth - 242) : 0;
-  const y = menu ? Math.min(menu.y + 6, window.innerHeight - 330) : 0;
+    document.documentElement.style.setProperty("--accent-rgb", accent);
+  }, [accent]);
+  useEffect(() => {
+    document.getElementById("main-scroll")?.scrollTo({ top: 0 });
+  }, [path]);
+  useEffect(() => {
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
   return (
-    <AnimatePresence>
-      {menu && t && (
-        <motion.div key="menu" className="fixed inset-0 z-[110]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={close}>
-          <div className={`absolute inset-0 ${desktop ? '' : 'bg-black/50'}`} />
-          <motion.div
-            onClick={e => e.stopPropagation()}
-            initial={desktop ? { opacity: 0, scale: 0.92, y: -6 } : { y: 300 }} animate={desktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }} exit={desktop ? { opacity: 0, scale: 0.95 } : { y: 300 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            style={desktop ? { left: x, top: y, width: 230, transformOrigin: 'top right' } : { left: 10, right: 10, bottom: 10, paddingBottom: 'var(--safe-b)' }}
-            className="glass glass-thick absolute rounded-3xl p-2"
-          >
-            {!desktop && (
-              <div className="flex items-center gap-3 border-b border-white/10 p-3">
-                <img src={t.thumb || t.img} alt="" className="size-12 rounded-lg object-cover" />
-                <div className="min-w-0"><div className="truncate font-semibold">{t.name}</div><div className="truncate text-sm text-white/55">{t.artist}</div></div>
-              </div>
-            )}
-            {items.map(it => (
-              <button key={it.label} onClick={() => { close(); it.run(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[15px] font-medium transition hover:bg-white/10 active:bg-white/15">
-                <it.icon size={18} className="text-white/70" />{it.label}
-              </button>
-            ))}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <>
+      <div className="ambient" aria-hidden />
+      <div className="relative z-[1] flex h-dvh flex-col">
+        <OfflineBanner />
+        <div className="flex min-h-0 flex-1 gap-2 md:p-2 md:pb-2">
+          <Sidebar />
+          <main id="main-scroll" className="panel relative min-w-0 flex-1 overflow-y-auto max-md:rounded-none max-md:border-0 md:rounded-xl">
+            <TopBar />
+            <div className="px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-10">{children}</div>
+          </main>
+          <RightPanel />
+        </div>
+        <PlayerBar />
+      </div>
+      <MiniPlayer />
+      <MobileNav />
+      <DynamicIsland />
+      <FullPlayer />
+      <ShareDialog />
+      <PlaylistPicker />
+      <CreatePlaylistDialog />
+      <Toasts />
+    </>
   );
 }
-
-export { Languages, Music2 };

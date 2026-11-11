@@ -1,0 +1,341 @@
+@import "tailwindcss";
+
+/* ───────────── Theme tokens (Spotify palette · Liquid Glass) ───────────── */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #121212;
+  --elev: #1f1f1f;
+  --hover: #2a2a2a;
+  --fg: #ffffff;
+  --sub: #b3b3b3;
+  --line: rgb(255 255 255 / 0.1);
+  --brand: #1ed760;
+  --brand-hover: #3be477;
+  --on-brand: #000000;
+  --glass-a: rgb(255 255 255 / 0.1);
+  --glass-b: rgb(255 255 255 / 0.03);
+  --glass-hi: rgb(255 255 255 / 0.28);
+  --glass-edge: rgb(255 255 255 / 0.12);
+  --glass-shadow: rgb(0 0 0 / 0.45);
+  --panel-mix: 58%;
+  --accent-rgb: 30 215 96;
+  --ambient-strength: 0.5;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e9ebee;
+  --panel: #ffffff;
+  --elev: #f1f2f4;
+  --hover: #e4e6ea;
+  --fg: #101114;
+  --sub: #5e6168;
+  --line: rgb(0 0 0 / 0.09);
+  --brand: #1db954;
+  --brand-hover: #17a449;
+  --on-brand: #ffffff;
+  --glass-a: rgb(255 255 255 / 0.75);
+  --glass-b: rgb(255 255 255 / 0.35);
+  --glass-hi: rgb(255 255 255 / 0.95);
+  --glass-edge: rgb(255 255 255 / 0.65);
+  --glass-shadow: rgb(20 30 60 / 0.16);
+  --panel-mix: 66%;
+  --ambient-strength: 0.32;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-elev: var(--elev);
+  --color-hover: var(--hover);
+  --color-fg: var(--fg);
+  --color-sub: var(--sub);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-onbrand: var(--on-brand);
+  --font-sans: "Circular Std", "Circular", "Inter", "Segoe UI", system-ui, -apple-system, "Noto Sans Malayalam",
+    "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Kannada", "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(128 128 128 / 0.4) transparent;
+}
+button {
+  cursor: pointer;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ───────────── Liquid glass ───────────── */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 12% -5%, rgb(var(--accent-rgb) / var(--ambient-strength)), transparent 70%),
+    radial-gradient(45% 45% at 100% 10%, rgb(120 90 255 / calc(var(--ambient-strength) * 0.55)), transparent 70%),
+    radial-gradient(55% 50% at 70% 110%, rgb(var(--accent-rgb) / calc(var(--ambient-strength) * 0.6)), transparent 70%),
+    var(--bg);
+  transition: background 0.8s ease;
+}
+
+.panel {
+  background: color-mix(in srgb, var(--panel) var(--panel-mix), transparent);
+  -webkit-backdrop-filter: blur(34px) saturate(1.7);
+  backdrop-filter: blur(34px) saturate(1.7);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 rgb(255 255 255 / 0.03),
+    0 10px 40px -12px var(--glass-shadow);
+}
+
+.glass {
+  background: linear-gradient(135deg, var(--glass-a), var(--glass-b));
+  -webkit-backdrop-filter: blur(28px) saturate(1.9) brightness(1.04);
+  backdrop-filter: blur(28px) saturate(1.9) brightness(1.04);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 1px rgb(255 255 255 / 0.05),
+    inset 0 0 22px rgb(255 255 255 / 0.04),
+    0 12px 40px -10px var(--glass-shadow);
+}
+
+.glass-dark {
+  background: linear-gradient(135deg, rgb(28 28 30 / 0.78), rgb(8 8 10 / 0.68));
+  -webkit-backdrop-filter: blur(30px) saturate(1.9);
+  backdrop-filter: blur(30px) saturate(1.9);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    inset 0 0 24px rgb(255 255 255 / 0.04),
+    0 18px 50px -12px rgb(0 0 0 / 0.65);
+  color: #fff;
+}
+
+.glass-pop {
+  background: color-mix(in srgb, var(--elev) 82%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    0 24px 60px -10px rgb(0 0 0 / 0.55);
+}
+
+/* ───────────── Motion helpers ───────────── */
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite;
+}
+.eq-paused .eq-bar {
+  animation-play-state: paused;
+  transform: scaleY(0.3);
+}
+
+@keyframes marquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(var(--shift, -40px));
+  }
+}
+.marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 9s ease-in-out infinite alternate;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fadeUp 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.pop-in {
+  animation: pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes slowspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.vinyl {
+  animation: slowspin 14s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--elev) 25%, var(--hover) 50%, var(--elev) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* Dynamic island */
+.island {
+  transition:
+    width 0.55s cubic-bezier(0.32, 1.25, 0.4, 1),
+    height 0.55s cubic-bezier(0.32, 1.25, 0.4, 1),
+    border-radius 0.55s cubic-bezier(0.32, 1.25, 0.4, 1),
+    box-shadow 0.4s ease;
+}
+.island-content {
+  transition:
+    opacity 0.3s ease 0.12s,
+    transform 0.4s ease 0.08s,
+    filter 0.3s ease;
+}
+.island-hide {
+  opacity: 0;
+  transform: scale(0.92);
+  filter: blur(6px);
+  pointer-events: none;
+  transition-delay: 0s;
+}
+
+/* range sliders */
+input[type="range"].spot {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 12px;
+  cursor: pointer;
+  --pct: 0%;
+}
+input[type="range"].spot::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--track-fill, #fff) var(--pct), rgb(128 128 128 / 0.35) var(--pct));
+}
+input[type="range"].spot::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(128 128 128 / 0.35);
+}
+input[type="range"].spot::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track-fill, #fff);
+}
+input[type="range"].spot::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+input[type="range"].spot::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+}
+.group:hover input[type="range"].spot::-webkit-slider-thumb,
+input[type="range"].spot:active::-webkit-slider-thumb,
+input[type="range"].spot.always::-webkit-slider-thumb {
+  opacity: 1;
+}
+.group:hover input[type="range"].spot {
+  --track-fill: var(--brand);
+}
+.group:hover input[type="range"].spot::-moz-range-thumb {
+  opacity: 1;
+}
+
+.safe-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.press {
+  transition: transform 0.12s ease;
+}
+.press:active {
+  transform: scale(0.96);
+}
+
+/* Force dark-on-glass tokens for immersive surfaces (island, full player) in both themes */
+.dark-scope {
+  --fg: #ffffff;
+  --sub: rgb(255 255 255 / 0.62);
+  --line: rgb(255 255 255 / 0.14);
+  --brand: #1ed760;
+  --brand-hover: #3be477;
+  --on-brand: #000000;
+  --elev: #1f1f1f;
+  --hover: #2a2a2a;
+  --panel: #121212;
+  color: #fff;
+}
